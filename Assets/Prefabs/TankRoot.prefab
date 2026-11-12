@@ -313,6 +313,7 @@ MonoBehaviour:
   fullTiltSpeed: 6
   fullBankTurnSpeed: 120
   tiltResponse: 8
+  turretSmoothingSpeed: 18
 --- !u!114 &2768130323478917212
 MonoBehaviour:
   m_ObjectHideFlags: 0

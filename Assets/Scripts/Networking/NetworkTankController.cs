@@ -28,6 +28,7 @@ namespace NetworkTankArena.Networking
         private readonly ServerFireRequest serverFire = new ServerFireRequest();
         private readonly HashSet<NetworkProjectile> projectiles = new HashSet<NetworkProjectile>();
         private TankSimulation tank;
+        private TankPresentation presentation; //me
         private TankWeapon weapon;
         private LocalNetworkSession localSession;
         private TankControlIntent localIntent;
@@ -40,6 +41,9 @@ namespace NetworkTankArena.Networking
         private void Awake()
         {
             tank = GetComponent<TankSimulation>();
+
+            presentation = GetComponent<TankPresentation>();
+
             weapon = GetComponent<TankWeapon>();
             // No weapon gameplay before spawn, or on a client copy.
             if (weapon != null)
@@ -128,8 +132,21 @@ namespace NetworkTankArena.Networking
 
         public void SubmitLocalIntent(TankControlIntent intent)
         {
-            if (CanReadLocalInput)
-                localIntent = intent.Sanitize();
+            if (!CanReadLocalInput) return;
+            
+            localIntent = intent.Sanitize();
+            
+            if(localIntent.HasAimPoint)
+            {
+                if (TankMath.TryGetAimYaw(tank.TurretOrigin, localIntent.AimWorldPoint, out float localAimYaw))
+                    presentation.SetLocalAimOverride(localAimYaw); // Set the local override for cosmetic turret rotation
+                else
+                    presentation.ClearLocalAimOverride(); // Clear the local override if aim yaw calculation fails
+            }
+            else
+            {
+                presentation.ClearLocalAimOverride(); // Clear the local override if no aim point is provided
+            }
         }
 
         public void SubmitLocalFire(Vector3 desiredAimWorldPoint)
@@ -253,6 +270,7 @@ namespace NetworkTankArena.Networking
             if (localSession != null)
                 localSession.ReleaseLocalPlayer(this);
             localSession = null;
+            presentation.ClearLocalAimOverride(); // Clear the local override when releasing ownership
         }
 
         private void ResetIntent()

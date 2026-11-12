@@ -19,6 +19,8 @@ namespace NetworkTankArena.Tanks
         [SerializeField, Min(0.01f)] private float fullBankTurnSpeed = 120f;
         [SerializeField, Min(0f)] private float tiltResponse = 8f;
 
+        [SerializeField, Min(0.01f)] private float turretSmoothingSpeed = 12f;
+
         private TankSimulation tank;
         private Vector3 baseVisualPosition;
         private Quaternion baseChassisRotation;
@@ -29,6 +31,12 @@ namespace NetworkTankArena.Tanks
         private float pitch;
         private float roll;
         private bool initialized;
+
+        //me
+        private bool hasLocalAimOverride;
+        private float localAimYaw;
+
+        private float smoothedTurretYaw;
 
         private void Awake()
         {
@@ -54,6 +62,7 @@ namespace NetworkTankArena.Tanks
             previousPosition = transform.position;
             previousYaw = transform.eulerAngles.y;
             cosmeticTime = pitch = roll = 0f;
+            smoothedTurretYaw = tank.TurretYaw; //me
         }
 
         private void LateUpdate()
@@ -80,18 +89,37 @@ namespace NetworkTankArena.Tanks
             float wobble = Mathf.Sin(cosmeticTime * wobbleFrequency * 2f * Mathf.PI) * wobbleAngle * motion;
             chassisTilt.localRotation = baseChassisRotation * Quaternion.Euler(pitch, 0f, roll + wobble);
 
+            //me
+            float smoothingFactor = 1f - Mathf.Exp(-turretSmoothingSpeed * Time.deltaTime);
+            smoothedTurretYaw = Mathf.LerpAngle(smoothedTurretYaw, tank.TurretYaw, smoothingFactor);
+            float displayedYaw = hasLocalAimOverride ? localAimYaw : smoothedTurretYaw;  
             // Compensate for chassis yaw. Cosmetic bob and chassis tilt never determine aim.
-            turretPivot.rotation = Quaternion.Euler(0f, tank.TurretYaw, 0f);
+            turretPivot.rotation = Quaternion.Euler(0f, displayedYaw, 0f);
         }
 
         private void OnDisable()
         {
+            //me
+            ClearLocalAimOverride();
+            
             if (!initialized)
                 return;
 
             visualRoot.localPosition = baseVisualPosition;
             chassisTilt.localRotation = baseChassisRotation;
             turretPivot.localRotation = baseTurretRotation;
+        }
+
+        public void SetLocalAimOverride(float yaw) //me
+        {
+            if(!float.IsFinite(yaw)) return;
+            localAimYaw = yaw;
+            hasLocalAimOverride = true;
+        }
+
+        public void ClearLocalAimOverride() //me
+        {
+            hasLocalAimOverride = false;
         }
     }
 }
