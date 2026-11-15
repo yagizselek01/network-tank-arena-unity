@@ -317,6 +317,13 @@ MonoBehaviour:
   fullBankTurnSpeed: 120
   tiltResponse: 8
   turretSmoothingSpeed: 18
+  remoteAimErrorDegrees: 0
+  lastCatchUpTimeMs: 0
+  frameAngularChangeDegrees: 0
+  averageFrameAngularChangeDegrees: 0
+  turretSmoothTime: 0.1
+  useSmoothDamp: 1
+  enableRemoteSmoothing: 1
 --- !u!114 &2768130323478917212
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -428,6 +435,8 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   inputSendRate: 20
   inputTimeoutSeconds: 0.5
+  limitTurretReplicationRate: 1
+  turretReplicationRate: 10
 --- !u!1 &2654045706602636725
 GameObject:
   m_ObjectHideFlags: 0

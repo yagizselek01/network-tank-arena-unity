@@ -38,6 +38,10 @@ namespace NetworkTankArena.Networking
 
         public bool CanReadLocalInput => IsSpawned && IsClient && IsOwner && isActiveAndEnabled;
 
+        [SerializeField] private bool limitTurretReplicationRate = false;
+        [SerializeField, Range(1f, 30f)] private float turretReplicationRate = 10f;
+        private double nextTurretReplicationTime;
+
         private void Awake()
         {
             tank = GetComponent<TankSimulation>();
@@ -152,7 +156,16 @@ namespace NetworkTankArena.Networking
         public void SubmitLocalFire(Vector3 desiredAimWorldPoint)
         {
             if (CanReadLocalInput && fireSequence < ulong.MaxValue)
+            {
                 RequestFireRpc(++fireSequence, desiredAimWorldPoint);
+                if (TankMath.TryGetAimYaw(tank.TurretOrigin, desiredAimWorldPoint, out float predictedShotYaw)) //me
+                {
+                    float replicatedYaw = tank.TurretYaw;
+                    float displayedYaw = presentation.DisplayedTurretYaw;
+                    float predictionDifference = Mathf.Abs(Mathf.DeltaAngle(displayedYaw, replicatedYaw));
+                    Debug.Log($"[CLIENT FIRE REQUEST] seq={fireSequence}, yaw={predictedShotYaw:F1}, displayed={displayedYaw:F1}, replicated={replicatedYaw:F1}, predictiondiff={predictionDifference:F1}");
+                }
+            }
         }
 
         [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable, InvokePermission = RpcInvokePermission.Owner)]
@@ -177,6 +190,8 @@ namespace NetworkTankArena.Networking
             // TankSimulation.TurretYaw: continuous aim belongs exclusively to the movement stream.
             if (weapon.TryFire(Time.timeAsDouble, shotYaw, out Projectile projectile) && projectile != null)
             {
+                Debug.Log($"[SERVER SHOT] seq={requestSequence}, yaw={shotYaw:F1}");
+
                 if (!projectile.GetComponent<NetworkProjectile>().SpawnOnServer(this))
                     Destroy(projectile.gameObject); // Failed before network spawn; never leave local gameplay.
             }
@@ -244,7 +259,19 @@ namespace NetworkTankArena.Networking
 
             float timeout = TankMath.IsFinite(inputTimeoutSeconds) ? Mathf.Max(0.1f, inputTimeoutSeconds) : 0.5f;
             tank.Simulate(serverIntent.Read(Time.unscaledTimeAsDouble, timeout), Time.fixedDeltaTime);
-            turretYaw.Value = tank.TurretYaw;
+
+            if (!limitTurretReplicationRate)
+            {
+                turretYaw.Value = tank.TurretYaw;
+            }
+            else
+            {
+                if (Time.unscaledTimeAsDouble >= nextTurretReplicationTime)
+                {
+                    turretYaw.Value = tank.TurretYaw;
+                    nextTurretReplicationTime = Time.unscaledTimeAsDouble + 1d / turretReplicationRate;
+                }
+            }
         }
 
         private void OnTurretYawChanged(float previous, float current)
@@ -279,6 +306,7 @@ namespace NetworkTankArena.Networking
             serverIntent.Reset();
             sequence = 0;
             nextSendTime = 0d;
+            nextTurretReplicationTime = 0d;
         }
 
         private void ResetFireStream()
