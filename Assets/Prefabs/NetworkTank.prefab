@@ -435,7 +435,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   inputSendRate: 20
   inputTimeoutSeconds: 0.5
-  limitTurretReplicationRate: 1
+  limitTurretReplicationRate: 0
   turretReplicationRate: 10
 --- !u!1 &2654045706602636725
 GameObject:
